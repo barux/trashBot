@@ -220,9 +220,11 @@ def get_coffee_bookings():
     cursor.execute('SELECT booking_date, user_name FROM coffee_bookings ORDER BY booking_date')
     bookings = {}
     for date, user_name in cursor.fetchall():
-        if date not in bookings:
-            bookings[date] = []
-        bookings[date].append(user_name)
+        # La data è già nel formato YYYY-MM-DD, la convertiamo solo per la visualizzazione
+        display_date = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
+        if display_date not in bookings:
+            bookings[display_date] = []
+        bookings[display_date].append(user_name)
     conn.close()
     return bookings
 
@@ -247,9 +249,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/visualizza - Visualizza tutte le prenotazioni attuali\n"
         "/calendario - Visualizza il calendario della raccolta differenziata e le prenotazioni rimanenti\n"
         "/configura - Configura i tipi di spazzatura per ogni giorno (solo amministratori)\n"
-        "/leaderboard", "Mostra la classifica di chi ha portato giù la spazzatura e pulito il caffè\n",
-        "/aiuto - Mostra questo messaggio di aiuto"
+        "/leaderboard - Mostra la classifica di chi ha portato giù la spazzatura e pulito il caffè\n"
+        "/aiuto - Mostra questo messaggio di aiuto",
+        parse_mode="Markdown"
     )
+
 
 async def book_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Gestisce il comando /prenota e mostra i giorni disponibili da oggi fino alla fine della settimana prossima."""
@@ -422,7 +426,8 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     trash_bookings = get_trash_bookings()
     coffee_bookings = get_coffee_bookings()
     trash_schedule = get_all_trash_types()
-    
+    print(trash_bookings)
+    print(coffee_bookings)
     # Calcolo del giorno corrente della settimana (0 = lunedì, 6 = domenica)
     current_weekday = today.weekday()
     
@@ -510,111 +515,131 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     
     await update.message.reply_text(message, parse_mode="Markdown")
 
-
-def remove_trash_booking(booking_date, user_id):
-    conn = sqlite3.connect('trash_scheduler.db')
-    cursor = conn.cursor()
-    
-    # Verifica che la prenotazione appartenga all'utente
-    cursor.execute('SELECT id FROM trash_bookings WHERE booking_date = ? AND user_id = ?', (booking_date, user_id))
-    booking = cursor.fetchone()
-    
-    if booking:
-        cursor.execute('DELETE FROM trash_bookings WHERE id = ?', (booking[0],))
-        conn.commit()
-        conn.close()
-        return True
-    
-    conn.close()
-    return False
-
 async def cancel_booking_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Mostra le prenotazioni dell'utente e permette di cancellarle."""
-    user_id = update.effective_user.id
-    conn = sqlite3.connect('trash_scheduler.db')
-    cursor = conn.cursor()
-    
-    # Recupera le prenotazioni dell'utente
-    cursor.execute('SELECT booking_date FROM trash_bookings WHERE user_id = ?', (user_id,))
-    bookings = cursor.fetchall()
-    conn.close()
-    
-    if not bookings:
-        await update.message.reply_text("Non hai prenotazioni da cancellare.")
-        return
-    
-    # Crea la tastiera per la cancellazione
-    keyboard = []
-    for booking in bookings:
-        booking_date = booking[0]
-        keyboard.append([InlineKeyboardButton(
-            f"Cancella {booking_date}",
-            callback_data=f"cancel_{booking_date}"
-        )])
+    """Permette all'utente di scegliere il tipo di prenotazione da cancellare."""
+    keyboard = [
+        [InlineKeyboardButton("🗑️ Cancella prenotazione spazzatura", callback_data="cancel_trash")],
+        [InlineKeyboardButton("☕ Cancella prenotazione macchina del caffè", callback_data="cancel_coffee")]
+    ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Seleziona una prenotazione da cancellare:", reply_markup=reply_markup)
+    await update.message.reply_text("Che tipo di prenotazione vuoi cancellare?", reply_markup=reply_markup)
 
-async def handle_cancel_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Gestisce l'azione di cancellazione della prenotazione."""
+async def cancel_booking_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Mostra le prenotazioni dell'utente per il tipo scelto e permette di cancellarle."""
     query = update.callback_query
     await query.answer()
-    
     user_id = query.from_user.id
-    booking_date = query.data.split("_")[1]
-    
-    success = remove_trash_booking(booking_date, user_id)
-    
-    if success:
-        message = f"Prenotazione per il giorno {booking_date} cancellata con successo."
+    booking_type = query.data  # "cancel_trash" o "cancel_coffee"
+
+    conn = sqlite3.connect('trash_scheduler.db')
+    cursor = conn.cursor()
+
+    if booking_type == "cancel_trash":
+        cursor.execute('SELECT booking_date FROM trash_bookings WHERE user_id = ?', (user_id,))
+        bookings = cursor.fetchall()
+        booking_label = "spazzatura"
+        callback_prefix = "delete_trash_"
     else:
-        message = "Non puoi cancellare questa prenotazione."
+        cursor.execute('SELECT booking_date FROM coffee_bookings WHERE user_id = ?', (user_id,))
+        bookings = cursor.fetchall()
+        booking_label = "macchina del caffè"
+        callback_prefix = "delete_coffee_"
+
+    conn.close()
+
+    if not bookings:
+        keyboard = [[InlineKeyboardButton("🔙 Indietro", callback_data="go_back")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text(f"Non hai prenotazioni per la {booking_label} da cancellare.", reply_markup=reply_markup)
+        return
+
+    # Ordina le prenotazioni dalla più recente alla più lontana
+    sorted_bookings = sorted(bookings, key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
+
+    keyboard = [
+        [InlineKeyboardButton(f"Cancella {booking[0]}", callback_data=f"{callback_prefix}{booking[0]}")]
+        for booking in sorted_bookings
+    ]
     
-    await query.edit_message_text(message)
+    # Aggiunge il tasto "Indietro"
+    keyboard.append([InlineKeyboardButton("🔙 Indietro", callback_data="go_back")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text(f"Seleziona una prenotazione della {booking_label} da cancellare:", reply_markup=reply_markup)
+
+
+async def delete_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Cancella la prenotazione selezionata dall'utente."""
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    data = query.data  # Esempio: "delete_trash_2025-02-28" o "delete_coffee_2025-02-28"
+    
+    if data.startswith("delete_trash_"):
+        booking_date = data.replace("delete_trash_", "")
+        table = "trash_bookings"
+        booking_label = "spazzatura"
+    elif data.startswith("delete_coffee_"):
+        booking_date = data.replace("delete_coffee_", "")
+        table = "coffee_bookings"
+        booking_label = "macchina del caffè"
+    else:
+        return  # Non dovrebbe mai accadere
+
+    conn = sqlite3.connect('trash_scheduler.db')
+    cursor = conn.cursor()
+    cursor.execute(f'DELETE FROM {table} WHERE user_id = ? AND booking_date = ?', (user_id, booking_date))
+    conn.commit()
+    conn.close()
+
+    await query.message.edit_text(f"✅ La prenotazione per la {booking_label} del {booking_date} è stata cancellata con successo.")
+
     
 async def view_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Visualizza il calendario settimanale della raccolta differenziata e le prenotazioni rimanenti per la settimana corrente."""
     today = datetime.now()
-    current_weekday = today.weekday()
+    current_weekday = today.weekday()  # 0 = Lunedì, 4 = Venerdì
     trash_schedule = get_all_trash_types()
     trash_bookings = get_trash_bookings()
     coffee_bookings = get_coffee_bookings()
     
     message = "📅 *Calendario settimanale della raccolta differenziata:*\n\n"
     
-    # Prima visualizza il calendario completo
-    for i in range(5):  # 0 = Lunedì, 4 = Venerdì
+    # Stampa il calendario settimanale
+    for i in range(5):  # Da lunedì a venerdì
         day_name = GIORNI_NOMI[i]
         message += f"*{day_name}*: {trash_schedule.get(i, 'Nessuna raccolta')}\n"
     
     message += "\n📌 *Prenotazioni rimanenti per questa settimana:*\n\n"
     
-    # Calcola il lunedì corrente
-    days_since_monday = today.weekday()
-    current_monday = today - timedelta(days=days_since_monday)
-    
-    # Mostra solo i giorni rimanenti della settimana corrente
+    # Trova il lunedì della settimana corrente
+    current_monday = today - timedelta(days=today.weekday())
+    print(f"Lunedì corrente: {current_monday.strftime('%d/%m/%Y')}")
+
     remaining_days = False
     for i in range(current_weekday, 5):  # Dal giorno corrente a venerdì
-        next_day = current_monday + timedelta(days=i)
-        formatted_date = next_day.strftime("%d/%m")
+        next_day = today + timedelta(days=(i - current_weekday))
+
+        booking_date_db = next_day.strftime('%Y-%m-%d')  # Formato per il database
+        booking_date_display = next_day.strftime('%d/%m/%Y')  # Formato per l'output
         day_name = GIORNI_NOMI[i]
         
-        # Aggiungi informazioni solo per i giorni rimanenti
-        message += f"*{day_name} {formatted_date}*\n"
-        
+        message += f"*{day_name} {booking_date_display}*\n"
+        print(trash_bookings)
+        print(booking_date_display)
         # Prenotazioni spazzatura
-        if i in trash_bookings and trash_bookings[i]:
+        if booking_date_display in trash_bookings:
             message += "*Prenotati per la spazzatura:*\n"
-            for user in trash_bookings[i]:
+            for user in trash_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
             message += "• Nessuno prenotato per la spazzatura\n"
         
         # Prenotazioni macchina caffè
         message += "*Prenotati per la macchina del caffè:*\n"
-        if i in coffee_bookings and coffee_bookings[i]:
-            for user in coffee_bookings[i]:
+        if booking_date_display in coffee_bookings:
+            for user in coffee_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
             message += "• Nessuno prenotato per la macchina del caffè\n"
@@ -622,7 +647,6 @@ async def view_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         message += "\n"
         remaining_days = True
     
-    # Se non ci sono giorni rimanenti in questa settimana
     if not remaining_days:
         message += "Non ci sono più giorni lavorativi rimanenti in questa settimana.\n"
     
@@ -719,7 +743,20 @@ async def set_commands(application):
     ]
     
     await application.bot.set_my_commands(commands)
-
+    
+async def go_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Torna alla schermata principale di cancellazione."""
+    query = update.callback_query
+    await query.answer()
+    
+    keyboard = [
+        [InlineKeyboardButton("🗑️ Cancella prenotazione spazzatura", callback_data="cancel_trash")],
+        [InlineKeyboardButton("☕ Cancella prenotazione macchina del caffè", callback_data="cancel_coffee")]
+    ]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text("Che tipo di prenotazione vuoi cancellare?", reply_markup=reply_markup)
+    
 def main() -> None:
     """Avvia il bot."""
     # Inizializza il database
@@ -759,7 +796,9 @@ def main() -> None:
     )
     
     application.add_handler(CommandHandler("cancella", cancel_booking_command))
-    application.add_handler(CallbackQueryHandler(handle_cancel_booking, pattern=r"^cancel_"))
+    application.add_handler(CallbackQueryHandler(cancel_booking_selection, pattern="^cancel_"))
+    application.add_handler(CallbackQueryHandler(delete_booking, pattern="^delete_"))
+    application.add_handler(CallbackQueryHandler(go_back, pattern="^go_back$"))
     
     # Aggiungi gli handler
     application.add_handler(CommandHandler("start", start))
