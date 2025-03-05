@@ -734,12 +734,12 @@ async def set_commands(application):
     commands = [
         BotCommand("start", "Avvia il bot"),
         BotCommand("prenota", "Prenota un giorno per portare giù la spazzatura"),
+        BotCommand("cancella", "Cancella la tua prenotazione"),
         BotCommand("visualizza", "Visualizza tutte le prenotazioni"),
         BotCommand("caffe", "Prenota per la spazzatura"),
         BotCommand("calendario", "Visualizza il calendario della raccolta differenziata"),
         BotCommand("configura", "Configura i tipi di spazzatura per ogni giorno"),
         BotCommand("aiuto", "Mostra questo messaggio di aiuto"),
-        BotCommand("cancella", "Cancella la tua prenotazione"),
         BotCommand("leaderboard", "Mostra la classifica di chi ha portato giù la spazzatura e pulito il caffè"),
     ]
     
