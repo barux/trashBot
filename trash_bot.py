@@ -455,8 +455,8 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             message += f"*Spazzatura:* {trash_types}\n"
             
             # Prenotazioni spazzatura
+            message += "*Prenotati per la spazzatura:*\n"
             if booking_date_display in trash_bookings:
-                message += "*Prenotati per la spazzatura:*\n"
                 for user in trash_bookings[booking_date_display]:
                     message += f"• {user}\n"
             else:
@@ -497,8 +497,8 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         message += f"*Spazzatura:* {trash_types}\n"
         
         # Prenotazioni spazzatura
+        message += "*Prenotati per la spazzatura:*\n"
         if booking_date_display in trash_bookings:
-            message += "*Prenotati per la spazzatura:*\n"
             for user in trash_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
@@ -630,8 +630,8 @@ async def view_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         print(trash_bookings)
         print(booking_date_display)
         # Prenotazioni spazzatura
+        message += "*Prenotati per la spazzatura:*\n"
         if booking_date_display in trash_bookings:
-            message += "*Prenotati per la spazzatura:*\n"
             for user in trash_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
