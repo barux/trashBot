@@ -247,6 +247,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/prenota - Prenota un giorno per portare giù la spazzatura\n"
         "/caffe - Prenota un giorno per pulire la macchina del caffè\n"
         "/visualizza - Visualizza tutte le prenotazioni attuali\n"
+        "/cancella - Cancella una prenotazione esistente\n"
         "/calendario - Visualizza il calendario della raccolta differenziata e le prenotazioni rimanenti\n"
         "/configura - Configura i tipi di spazzatura per ogni giorno (solo amministratori)\n"
         "/leaderboard - Mostra la classifica di chi ha portato giù la spazzatura e pulito il caffè\n"
