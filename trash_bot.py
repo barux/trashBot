@@ -389,7 +389,7 @@ async def handle_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         for user in trash_bookings:
             booking_message += f"• {user}\n"
     else:
-        booking_message += "• Nessuno prenotato per la spazzatura\n"
+        booking_message += "• -\n"
     
     # Prenotazioni per il caffè
     booking_message += "\n☕ *Macchina del Caffè:*\n"
@@ -397,7 +397,7 @@ async def handle_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         for user in coffee_bookings:
             booking_message += f"• {user}\n"
     else:
-        booking_message += "• Nessuno prenotato per la macchina del caffè\n"
+        booking_message += "• -\n"
     
     await query.message.reply_text(booking_message, parse_mode="Markdown")
     return ConversationHandler.END
@@ -460,7 +460,7 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 for user in trash_bookings[booking_date_display]:
                     message += f"• {user}\n"
             else:
-                message += "• Nessuno prenotato per la spazzatura\n"
+                message += "• -\n"
             
             # Prenotazioni macchina caffè
             message += "*Prenotati per la macchina del caffè:*\n"
@@ -468,7 +468,7 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 for user in coffee_bookings[booking_date_display]:
                     message += f"• {user}\n"
             else:
-                message += "• Nessuno prenotato per la macchina del caffè\n"
+                message += "• -\n"
             
             message += "\n"
         
@@ -502,7 +502,7 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             for user in trash_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
-            message += "• Nessuno prenotato per la spazzatura\n"
+            message += "• -\n"
         
         # Prenotazioni macchina caffè
         message += "*Prenotati per la macchina del caffè:*\n"
@@ -510,7 +510,7 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             for user in coffee_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
-            message += "• Nessuno prenotato per la macchina del caffè\n"
+            message += "• -\n"
         
         message += "\n"
     
@@ -635,7 +635,7 @@ async def view_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             for user in trash_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
-            message += "• Nessuno prenotato per la spazzatura\n"
+            message += "• -\n"
         
         # Prenotazioni macchina caffè
         message += "*Prenotati per la macchina del caffè:*\n"
@@ -643,7 +643,7 @@ async def view_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             for user in coffee_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
-            message += "• Nessuno prenotato per la macchina del caffè\n"
+            message += "• -\n"
         
         message += "\n"
         remaining_days = True
