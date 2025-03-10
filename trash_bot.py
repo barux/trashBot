@@ -420,6 +420,12 @@ def get_coffee_bookings_for_date(booking_date):
     conn.close()
     return bookings
 
+import re
+
+def escape_markdown_basic(text: str) -> str:
+    """Escape solo i caratteri speciali per il Markdown normale (_ e *)."""
+    return re.sub(r'([_*])', r'\\\1', text)
+
 
 async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Visualizza le prenotazioni della settimana corrente e della settimana prossima."""
@@ -427,38 +433,33 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     trash_bookings = get_trash_bookings()
     coffee_bookings = get_coffee_bookings()
     trash_schedule = get_all_trash_types()
-    print(trash_bookings)
-    print(coffee_bookings)
-    # Calcolo del giorno corrente della settimana (0 = lunedì, 6 = domenica)
+    
     current_weekday = today.weekday()
     
     message = "📋 *Prenotazioni:*\n\n"
     
     # Parte 1: Prenotazioni rimanenti della settimana corrente
-    if current_weekday < 5:  # Se è tra Lunedì e Giovedì
+    if current_weekday < 5:
         message += "*🗓️ QUESTA SETTIMANA:*\n\n"
         
-        # Calcola il lunedì di questa settimana
         days_since_monday = current_weekday
         this_monday = today - timedelta(days=days_since_monday)
         
-        # Mostra solo i giorni rimanenti della settimana (da oggi a venerdì)
-        for day_idx in range(current_weekday, 5):  # Dal giorno corrente a venerdì
+        for day_idx in range(current_weekday, 5):
             this_day = this_monday + timedelta(days=day_idx)
-            booking_date_db = this_day.strftime('%Y-%m-%d')  # Formato usato nel database
-            booking_date_display = this_day.strftime('%d/%m/%Y')  # Formato per la visualizzazione
-            day_name = GIORNI_NOMI[day_idx]
+            booking_date_display = escape_markdown_basic(this_day.strftime('%d/%m/%Y'))
+            day_name = escape_markdown_basic(GIORNI_NOMI[day_idx])
             
-            trash_types = trash_schedule.get(day_idx, "Nessuna raccolta")
+            trash_types = escape_markdown_basic(trash_schedule.get(day_idx, "Nessuna raccolta"))
             
             message += f"*{day_name} {booking_date_display}*\n"
             message += f"*Spazzatura:* {trash_types}\n"
             
             # Prenotazioni spazzatura
+            message += "*Prenotati per la spazzatura:*\n"
             if booking_date_display in trash_bookings:
-                message += "*Prenotati per la spazzatura:*\n"
                 for user in trash_bookings[booking_date_display]:
-                    message += f"• {user}\n"
+                    message += f"• {escape_markdown_basic(user)}\n"
             else:
                 message += "• -\n"
             
@@ -466,54 +467,49 @@ async def view_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             message += "*Prenotati per la macchina del caffè:*\n"
             if booking_date_display in coffee_bookings:
                 for user in coffee_bookings[booking_date_display]:
-                    message += f"• {user}\n"
+                    message += f"• {escape_markdown_basic(user)}\n"
             else:
                 message += "• -\n"
             
             message += "\n"
         
-        # Aggiungi una separazione tra le due sezioni
         message += "───────────────────\n\n"
     
     # Parte 2: Prenotazioni della settimana prossima
     message += "*🗓️ SETTIMANA PROSSIMA:*\n\n"
     
-    # Trova il lunedì della prossima settimana
     days_to_next_monday = (7 - today.weekday()) % 7
     if days_to_next_monday == 0:
-        days_to_next_monday = 7  # Se oggi è lunedì, vai al prossimo lunedì
+        days_to_next_monday = 7
     next_monday = today + timedelta(days=days_to_next_monday)
     
-    for day_idx in range(5):  # 0 = Lunedì, 4 = Venerdì
-        # Calcola la data per questo giorno della settimana prossima
+    for day_idx in range(5):
         next_day = next_monday + timedelta(days=day_idx)
-        booking_date_db = next_day.strftime('%Y-%m-%d')  # Formato usato nel database
-        booking_date_display = next_day.strftime('%d/%m/%Y')  # Formato per la visualizzazione
-        day_name = GIORNI_NOMI[day_idx]
+        booking_date_display = escape_markdown_basic(next_day.strftime('%d/%m/%Y'))
+        day_name = escape_markdown_basic(GIORNI_NOMI[day_idx])
         
-        trash_types = trash_schedule.get(day_idx, "Nessuna raccolta")
+        trash_types = escape_markdown_basic(trash_schedule.get(day_idx, "Nessuna raccolta"))
         
         message += f"*{day_name} {booking_date_display}*\n"
         message += f"*Spazzatura:* {trash_types}\n"
         
-        # Prenotazioni spazzatura
+        message += "*Prenotati per la spazzatura:*\n"
         if booking_date_display in trash_bookings:
-            message += "*Prenotati per la spazzatura:*\n"
             for user in trash_bookings[booking_date_display]:
-                message += f"• {user}\n"
+                message += f"• {escape_markdown_basic(user)}\n"
         else:
             message += "• -\n"
         
-        # Prenotazioni macchina caffè
         message += "*Prenotati per la macchina del caffè:*\n"
         if booking_date_display in coffee_bookings:
             for user in coffee_bookings[booking_date_display]:
-                message += f"• {user}\n"
+                message += f"• {escape_markdown_basic(user)}\n"
         else:
             message += "• -\n"
         
         message += "\n"
     
+    # **Mandiamo il messaggio con Markdown normale**
     await update.message.reply_text(message, parse_mode="Markdown")
 
 async def cancel_booking_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
