@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, ChatMemberAdministrator, ChatMemberOwner
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler
 from dotenv import load_dotenv
+import re
 
 # Configurazione logging
 logging.basicConfig(
@@ -420,8 +421,6 @@ def get_coffee_bookings_for_date(booking_date):
     conn.close()
     return bookings
 
-import re
-
 def escape_markdown_basic(text: str) -> str:
     """Escape solo i caratteri speciali per il Markdown normale (_ e *)."""
     return re.sub(r'([_*])', r'\\\1', text)
@@ -626,8 +625,8 @@ async def view_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         print(trash_bookings)
         print(booking_date_display)
         # Prenotazioni spazzatura
+        message += "*Prenotati per la spazzatura:*\n"
         if booking_date_display in trash_bookings:
-            message += "*Prenotati per la spazzatura:*\n"
             for user in trash_bookings[booking_date_display]:
                 message += f"• {user}\n"
         else:
